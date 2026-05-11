@@ -1,0 +1,897 @@
+# WEEK 6 FULL REVISION — VPC WITH BASTION SERVER + PRIVATE SERVER + NAT GATEWAY
+
+Based on your lab document: 
+
+---
+
+# AIM
+
+To create a secure AWS architecture where:
+
+* Bastion Server is in Public Subnet
+* Private EC2/Database Server is in Private Subnet
+* Private server cannot be accessed directly from internet
+* NAT Gateway provides internet access to private subnet
+
+---
+
+# FINAL ARCHITECTURE
+
+```text id="jlwmx1"
+Internet
+   ↓
+Internet Gateway
+   ↓
+Public Route Table
+   ↓
+Public Subnet (10.0.1.0/24)
+   ↓
+Bastion Server
+   ↓
+Private Subnet (10.0.2.0/24)
+   ↓
+Private EC2 / DB Server
+   ↓
+NAT Gateway → Internet
+```
+
+---
+
+# STEP 1 — CREATE VPC
+
+Go to:
+
+[AWS VPC Console](https://console.aws.amazon.com/vpc?utm_source=chatgpt.com)
+
+Left side:
+
+```text id="jlwmx2"
+Your VPCs
+```
+
+Click:
+
+```text id="jlwmx3"
+Create VPC
+```
+
+---
+
+# ENTER DETAILS
+
+| Field               | Value         |
+| ------------------- | ------------- |
+| Resources to create | VPC only      |
+| Name                | new-vpc-pract |
+| IPv4 CIDR           | 10.0.0.0/16   |
+
+Click:
+
+```text id="jlwmx4"
+Create VPC
+```
+
+---
+
+# RESULT
+
+VPC created successfully.
+
+CIDR:
+
+```text id="jlwmx5"
+10.0.0.0/16
+```
+
+provides large private IP range.
+
+---
+
+# STEP 2 — CREATE PUBLIC SUBNET
+
+Go to:
+
+```text id="jlwmx6"
+Subnets
+```
+
+Click:
+
+```text id="jlwmx7"
+Create subnet
+```
+
+---
+
+# ENTER DETAILS
+
+| Field             | Value         |
+| ----------------- | ------------- |
+| VPC               | new-vpc-pract |
+| Subnet name       | public        |
+| Availability Zone | any           |
+| CIDR              | 10.0.1.0/24   |
+
+Click:
+
+```text id="jlwmx8"
+Create subnet
+```
+
+---
+
+# ENABLE AUTO PUBLIC IP
+
+VERY IMPORTANT.
+
+Select public subnet →
+
+Actions →
+
+```text id="jlwmx9"
+Edit subnet settings
+```
+
+Enable:
+
+```text id="jlwmxa"
+Auto-assign public IPv4
+```
+
+Save.
+
+---
+
+# WHY?
+
+Without this:
+
+❌ Bastion server will not get public IP.
+
+---
+
+# STEP 3 — CREATE PRIVATE SUBNET
+
+Again:
+
+```text id="jlwmxb"
+Create subnet
+```
+
+---
+
+# ENTER DETAILS
+
+| Field       | Value         |
+| ----------- | ------------- |
+| VPC         | new-vpc-pract |
+| Subnet name | private       |
+| CIDR        | 10.0.2.0/24   |
+
+Click:
+
+```text id="jlwmxc"
+Create subnet
+```
+
+---
+
+# IMPORTANT
+
+DO NOT enable public IP.
+
+Private subnet should remain private.
+
+---
+
+# STEP 4 — CREATE INTERNET GATEWAY
+
+Go to:
+
+```text id="jlwmxd"
+Internet Gateways
+```
+
+Click:
+
+```text id="jlwmxe"
+Create Internet Gateway
+```
+
+---
+
+# ENTER DETAILS
+
+| Field | Value     |
+| ----- | --------- |
+| Name  | pract-igw |
+
+Create.
+
+---
+
+# ATTACH TO VPC
+
+Actions →
+
+```text id="jlwmxf"
+Attach to VPC
+```
+
+Select:
+
+```text id="jlwmxg"
+new-vpc-pract
+```
+
+Attach.
+
+---
+
+# STEP 5 — CREATE PUBLIC ROUTE TABLE
+
+Go to:
+
+```text id="jlwmxh"
+Route Tables
+```
+
+Click:
+
+```text id="’winiwxi"
+Create route table
+```
+
+---
+
+# ENTER DETAILS
+
+| Field | Value         |
+| ----- | ------------- |
+| Name  | public-rt     |
+| VPC   | new-vpc-pract |
+
+Create.
+
+---
+
+# ADD INTERNET ROUTE
+
+Open:
+
+```text id="’winiwxj"
+public-rt
+```
+
+Routes →
+
+```text id="’winiwxk"
+Edit routes
+```
+
+Add route:
+
+| Destination | Target           |
+| ----------- | ---------------- |
+| 0.0.0.0/0   | Internet Gateway |
+
+Select:
+
+```text id="’winiwxl"
+pract-igw
+```
+
+Save.
+
+---
+
+# ASSOCIATE PUBLIC SUBNET
+
+Subnet Associations →
+
+```text id="’winiwxm"
+Edit subnet associations
+```
+
+Select:
+
+```text id="’winiwxn"
+public subnet
+```
+
+Save.
+
+---
+
+# RESULT
+
+Public subnet now has internet access.
+
+---
+
+# STEP 6 — CREATE SECURITY GROUP FOR BASTION
+
+Go to:
+
+[AWS EC2 Console](https://console.aws.amazon.com/ec2?utm_source=chatgpt.com)
+
+Security Groups →
+
+```text id="’winiwxo"
+Create security group
+```
+
+---
+
+# ENTER DETAILS
+
+| Field       | Value                  |
+| ----------- | ---------------------- |
+| Name        | bastion-sg             |
+| Description | Bastion Security Group |
+| VPC         | new-vpc-pract          |
+
+---
+
+# INBOUND RULE
+
+| Type | Port | Source |
+| ---- | ---- | ------ |
+| SSH  | 22   | My IP  |
+
+(For lab temporarily you can use `0.0.0.0/0`)
+
+Create SG.
+
+---
+
+# STEP 7 — CREATE PRIVATE SECURITY GROUP
+
+Again create SG.
+
+---
+
+# ENTER DETAILS
+
+| Field       | Value          |
+| ----------- | -------------- |
+| Name        | private-sg     |
+| Description | Private EC2 SG |
+| VPC         | new-vpc-pract  |
+
+---
+
+# INBOUND RULE
+
+| Type | Port | Source     |
+| ---- | ---- | ---------- |
+| SSH  | 22   | bastion-sg |
+
+OR
+
+| Type | Port | Source      |
+| ---- | ---- | ----------- |
+| SSH  | 22   | 10.0.1.0/24 |
+
+---
+
+# IMPORTANT
+
+DO NOT USE:
+
+```text id="’winiwxp"
+0.0.0.0/0
+```
+
+for final secure setup.
+
+Create SG.
+
+---
+
+# STEP 8 — LAUNCH BASTION SERVER
+
+Go to:
+
+EC2 →
+
+```text id="’winiwxq"
+Launch Instance
+```
+
+---
+
+# INSTANCE DETAILS
+
+| Field         | Value        |
+| ------------- | ------------ |
+| Name          | Bastion      |
+| AMI           | Amazon Linux |
+| Instance Type | t2.micro     |
+
+---
+
+# CREATE KEY PAIR
+
+Key pair name:
+
+```text id="’winiwxr"
+bast
+```
+
+Download:
+
+```text id="’winiwxs"
+bast.pem
+```
+
+---
+
+# NETWORK SETTINGS
+
+Click:
+
+```text id="’winiwxt"
+Edit
+```
+
+Select:
+
+| Option         | Value         |
+| -------------- | ------------- |
+| VPC            | new-vpc-pract |
+| Subnet         | public        |
+| Auto Public IP | Enable        |
+| Security Group | bastion-sg    |
+
+Launch instance.
+
+---
+
+# RESULT
+
+Bastion server gets:
+
+✔ Public IP
+✔ Internet access
+
+---
+
+# STEP 9 — LAUNCH PRIVATE EC2
+
+Again launch instance.
+
+---
+
+# ENTER DETAILS
+
+| Field         | Value          |
+| ------------- | -------------- |
+| Name          | private-server |
+| AMI           | Amazon Linux   |
+| Instance Type | t2.micro       |
+
+---
+
+# CREATE KEY PAIR
+
+Key pair name:
+
+```text id="’winiwxu"
+private
+```
+
+Download:
+
+```text id="’winiwxv"
+private.pem
+```
+
+---
+
+# NETWORK SETTINGS
+
+| Option         | Value         |
+| -------------- | ------------- |
+| VPC            | new-vpc-pract |
+| Subnet         | private       |
+| Auto Public IP | Disable       |
+| Security Group | private-sg    |
+
+Launch instance.
+
+---
+
+# RESULT
+
+Private EC2 has:
+
+✔ Private IP only
+❌ No public IP
+
+---
+
+# STEP 10 — CONNECT TO BASTION SERVER
+
+Copy Bastion public IP.
+
+Open CMD/PowerShell.
+
+Go to folder containing:
+
+```text id="’winiwxw"
+bast.pem
+```
+
+Run:
+
+```bash id="’winiwxx"
+ssh -i bast.pem ec2-user@<BASTION_PUBLIC_IP>
+```
+
+Example:
+
+```bash id="’winiwxy"
+ssh -i bast.pem ec2-user@52.xx.xx.xx
+```
+
+Type:
+
+```text id="’winiwxz"
+yes
+```
+
+Connected successfully.
+
+---
+
+# STEP 11 — COPY PRIVATE PEM TO BASTION
+
+Open NEW terminal on local machine.
+
+Run:
+
+```bash id="m0v7yx"
+scp -i bast.pem private.pem ec2-user@<BASTION_PUBLIC_IP>:/home/ec2-user/
+```
+
+---
+
+# VERIFY FILE
+
+Inside Bastion:
+
+```bash id="tjlwm1"
+ls
+```
+
+You should see:
+
+```text id="tjlwm2"
+private.pem
+```
+
+---
+
+# GIVE PERMISSIONS
+
+```bash id="tjlwm3"
+chmod 400 private.pem
+```
+
+---
+
+# STEP 12 — CONNECT TO PRIVATE EC2
+
+Copy private EC2 private IP.
+
+Example:
+
+```text id="tjlwm4"
+10.0.2.74
+```
+
+---
+
+# SSH INTO PRIVATE EC2
+
+Inside Bastion:
+
+```bash id="tjlwm5"
+ssh -i private.pem ec2-user@10.0.2.74
+```
+
+---
+
+# RESULT
+
+Successfully connected:
+
+```text id="tjlwm6"
+[ec2-user@ip-10-0-2-74 ~]$
+```
+
+---
+
+# STEP 13 — TEST INTERNET
+
+Inside private EC2 run:
+
+```bash id="tjlwm7"
+sudo dnf update -y
+```
+
+RESULT:
+
+❌ Fails
+
+WHY?
+
+Private subnet has no internet yet.
+
+---
+
+# STEP 14 — CREATE NAT GATEWAY
+
+Go to:
+
+VPC →
+
+```text id="tjlwm8"
+NAT Gateways
+```
+
+Click:
+
+```text id="tjlwm9"
+Create NAT Gateway
+```
+
+---
+
+# ENTER DETAILS
+
+| Field             | Value         |
+| ----------------- | ------------- |
+| Name              | pract-nat-gw  |
+| Subnet            | public subnet |
+| Connectivity Type | Public        |
+
+Click:
+
+```text id="tjlwm0"
+Allocate Elastic IP
+```
+
+Click:
+
+```text id="ujlwm1"
+Create NAT Gateway
+```
+
+---
+
+# IMPORTANT
+
+NAT Gateway MUST be inside public subnet.
+
+---
+
+# WAIT
+
+Status should become:
+
+```text id="ujlwm2"
+Available
+```
+
+---
+
+# STEP 15 — CREATE PRIVATE ROUTE TABLE
+
+Go to:
+
+```text id="ujlwm3"
+Route Tables
+```
+
+Click:
+
+```text id="ujlwm4"
+Create route table
+```
+
+---
+
+# ENTER DETAILS
+
+| Field | Value         |
+| ----- | ------------- |
+| Name  | private-rt    |
+| VPC   | new-vpc-pract |
+
+Create.
+
+---
+
+# STEP 16 — ADD NAT ROUTE
+
+Open:
+
+```text id="ujlwm5"
+private-rt
+```
+
+Routes →
+
+Edit routes →
+
+Add route
+
+---
+
+# ENTER
+
+| Destination | Target      |
+| ----------- | ----------- |
+| 0.0.0.0/0   | NAT Gateway |
+
+Select:
+
+```text id="ujlwm6"
+pract-nat-gw
+```
+
+Save changes.
+
+---
+
+# STEP 17 — ASSOCIATE PRIVATE SUBNET
+
+Subnet Associations →
+
+```text id="ujlwm7"
+Edit subnet associations
+```
+
+Select:
+
+```text id="ujlwm8"
+private subnet
+```
+
+Save.
+
+---
+
+# STEP 18 — TEST NAT GATEWAY
+
+Go back to private EC2.
+
+Run:
+
+```bash id="ujlwm9"
+sudo dnf update -y
+```
+
+NOW:
+
+✔ Update works successfully
+
+---
+
+# WHAT HAPPENED?
+
+Private EC2 now accesses internet THROUGH NAT Gateway.
+
+Still:
+
+✔ No public IP
+✔ No direct internet access
+
+Secure architecture achieved.
+
+---
+
+# OPTIONAL — INSTALL MARIADB
+
+Run:
+
+```bash id="vjlwm1"
+sudo dnf install mariadb105-server -y
+```
+
+Start service:
+
+```bash id="vjlwm2"
+sudo systemctl start mariadb
+```
+
+Enable service:
+
+```bash id="vjlwm3"
+sudo systemctl enable mariadb
+```
+
+Check status:
+
+```bash id="vjlwm4"
+sudo systemctl status mariadb
+```
+
+---
+
+# FINAL OUTPUT
+
+✔ VPC created
+✔ Public subnet created
+✔ Private subnet created
+✔ Internet Gateway attached
+✔ Bastion server launched
+✔ Private EC2 launched
+✔ SSH through Bastion successful
+✔ NAT Gateway configured
+✔ Internet access inside private subnet successful
+✔ Secure architecture achieved
+
+---
+
+# VERY IMPORTANT VIVA QUESTIONS
+
+## 1. What is Bastion Server?
+
+A Bastion Server is a public EC2 instance used to securely access private EC2 instances.
+
+---
+
+## 2. Why is private EC2 secure?
+
+Because it has no public IP and cannot be directly accessed from internet.
+
+---
+
+## 3. Why is NAT Gateway needed?
+
+To provide outbound internet access for private subnet instances.
+
+---
+
+## 4. Difference between Bastion and NAT Gateway?
+
+| Bastion      | NAT Gateway              |
+| ------------ | ------------------------ |
+| Used for SSH | Used for internet access |
+| Public EC2   | Managed AWS service      |
+| Admin access | Outbound traffic         |
+
+---
+
+## 5. Why must NAT Gateway be in public subnet?
+
+Because it requires Internet Gateway connectivity.
+
+---
+
+## 6. Why does SSH timeout happen?
+
+Possible reasons:
+
+* Missing SG rule
+* Missing IGW route
+* No public IP
+* Wrong subnet association
+
+---
+
+## 7. Why should private SG not allow 0.0.0.0/0?
+
+Because it exposes private EC2 to the internet.
+
+---
+
+## 8. Can Bastion replace NAT Gateway?
+
+❌ No.
+
+Bastion provides SSH access only.
+NAT Gateway provides internet access.
